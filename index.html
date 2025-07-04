@@ -8,7 +8,7 @@
     <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-    <!-- **NEW**: Add jsPDF library for PDF generation -->
+    <!-- Add jsPDF library for PDF generation -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body>
@@ -28,17 +28,38 @@
         // --- Reusable Components ---
 
         const DashboardHeader = () => {
-          const [buttonText, setButtonText] = useState('+ Create Intake Link');
-          const [isCopied, setIsCopied] = useState(false);
+          const [copyMessage, setCopyMessage] = useState('');
 
           const handleCreateLinkClick = () => {
-            const intakeLink = `https://caseintakechatbot.netlify.app`; // Example URL
+            const intakeLink = `https://caseintake-chat-bot.netlify.app`;
             
-            navigator.clipboard.writeText(intakeLink).then(() => {
-              setButtonText('Copied!');
-              setIsCopied(true);
-              setTimeout(() => { setButtonText('+ Create Intake Link'); setIsCopied(false); }, 2000);
-            }).catch(err => console.error('Failed to copy text: ', err));
+            try {
+                const textArea = document.createElement("textarea");
+                textArea.value = intakeLink;
+                textArea.style.position = "fixed";
+                textArea.style.top = 0;
+                textArea.style.left = 0;
+                textArea.style.opacity = 0;
+
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+
+                const successful = document.execCommand('copy');
+                
+                if (successful) {
+                    setCopyMessage('Link copied! Paste it into your browser to open the chatbot.');
+                } else {
+                    setCopyMessage('Error: Could not copy link.');
+                }
+
+                document.body.removeChild(textArea);
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                setCopyMessage('Error: Could not copy link.');
+            }
+
+            setTimeout(() => { setCopyMessage(''); }, 4000);
           };
 
           return (
@@ -48,7 +69,18 @@
                 <p className="text-sm text-gray-500">Manage client intake assessments</p>
               </div>
               <div className="flex items-center gap-4">
-                <button onClick={handleCreateLinkClick} className={`px-4 py-2 font-semibold rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-200 ${isCopied ? 'bg-green-500 text-white focus:ring-green-500' : 'bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500'}`}>{buttonText}</button>
+                <div className="relative">
+                  <button 
+                    onClick={handleCreateLinkClick} 
+                    className="px-4 py-2 font-semibold rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-200 bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500">
+                    + Create Intake Link
+                  </button>
+                  {copyMessage && (
+                     <div className="absolute top-full mt-2 w-max bg-gray-800 text-white text-sm rounded-md py-2 px-3 shadow-lg z-10">
+                       {copyMessage}
+                     </div>
+                   )}
+                </div>
                 <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-white font-bold text-lg">SJ</div><div><p className="font-semibold text-gray-800">Sarah Johnson</p><p className="text-xs text-gray-500">Attorney</p></div></div>
               </div>
             </header>
@@ -63,14 +95,34 @@
           </div>
         );
 
-        // --- **FIXED & IMPROVED** Modal Component for Viewing Reports ---
+        const StrengthGauge = ({ percentage }) => {
+            const sqSize = 100;
+            const strokeWidth = 10;
+            const radius = (sqSize - strokeWidth) / 2;
+            const viewBox = `0 0 ${sqSize} ${sqSize}`;
+            const dashArray = radius * Math.PI * 2;
+            const dashOffset = dashArray - dashArray * percentage / 100;
+
+            let color = '#22c55e'; // Green
+            if (percentage < 40) color = '#ef4444'; // Red
+            else if (percentage < 70) color = '#f59e0b'; // Amber
+
+            return (
+                <svg width={sqSize} height={sqSize} viewBox={viewBox}>
+                    <circle className="fill-none stroke-gray-200" cx={sqSize / 2} cy={sqSize / 2} r={radius} strokeWidth={`${strokeWidth}px`} />
+                    <circle className="fill-none transition-all duration-700" stroke={color} cx={sqSize / 2} cy={sqSize / 2} r={radius} strokeLinecap="round" strokeWidth={`${strokeWidth}px`} transform={`rotate(-90 ${sqSize / 2} ${sqSize / 2})`} style={{ strokeDasharray: dashArray, strokeDashoffset: dashOffset }} />
+                    <text className="text-xl font-bold" fill={color} x="50%" y="50%" dy=".3em" textAnchor="middle">{`${percentage}%`}</text>
+                </svg>
+            );
+        };
+
         const ReportModal = ({ report, analysis, onClose, isLoading }) => {
             if (!report) return null;
 
-            // This new function is much smarter at parsing markdown-like text into clean HTML.
             const renderFormattedText = (text) => {
                 if (!text) return null;
-                const lines = text.split('\n').filter(line => line.trim() !== '');
+                const strengthRegex = /\*\*Case Strength:\*\*\s*(\d+)%\s*-\s*(.*)/;
+                const strengthMatch = text.match(strengthRegex);
                 const elements = [];
                 let currentList = [];
 
@@ -80,15 +132,22 @@
                         currentList = [];
                     }
                 };
+                
+                const lines = text.split('\n').filter(line => line.trim() !== '' && !line.match(strengthRegex));
 
-                const renderInlineFormatting = (line) => {
-                    return line.split(/(\*\*.*?\*\*)/g).map((part, i) => {
-                        if (part.startsWith('**') && part.endsWith('**')) {
-                            return <strong key={i} className="font-semibold text-gray-900">{part.slice(2, -2)}</strong>;
-                        }
-                        return part;
-                    });
-                };
+                if (strengthMatch) {
+                    const percentage = parseInt(strengthMatch[1], 10);
+                    const justification = strengthMatch[2];
+                    elements.push(
+                        <div key="strength-gauge" className="mb-4">
+                            <h4 className="font-bold text-gray-800 mt-4 mb-2">Case Strength</h4>
+                            <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+                                <StrengthGauge percentage={percentage} />
+                                <p className="text-gray-700 flex-1">{justification}</p>
+                            </div>
+                        </div>
+                    );
+                }
 
                 lines.forEach((line, index) => {
                     const trimmedLine = line.trim();
@@ -97,74 +156,141 @@
                         const headingText = trimmedLine.replace(/^###\s*/, '').replace(/\*\*/g, '');
                         elements.push(<h4 key={index} className="font-bold text-gray-800 mt-4 mb-2">{headingText}</h4>);
                     } else if (trimmedLine.startsWith('*')) {
-                        currentList.push(<li key={index}>{renderInlineFormatting(trimmedLine.replace(/^\*\s*/, ''))}</li>);
+                        currentList.push(<li key={index}>{trimmedLine.replace(/^\*\s*/, '')}</li>);
                     } else if (trimmedLine.length > 0) {
                         flushList();
-                        elements.push(<p key={index} className="my-2">{renderInlineFormatting(trimmedLine)}</p>);
+                        elements.push(<p key={index} className="my-2">{trimmedLine}</p>);
                     }
                 });
 
-                flushList(); // Add any remaining list items at the end
+                flushList();
                 return elements;
             };
+            
+            const renderFullReport = (text) => {
+                if (!text) return null;
+                const elements = text.split('\n').map((line, index) => {
+                    const trimmedLine = line.trim();
+                    if (trimmedLine === '***') return <hr key={index} className="my-4 border-gray-300" />;
+                    if (trimmedLine.startsWith('###')) return <h4 key={index} className="font-semibold text-gray-900 mt-5 mb-2">{trimmedLine.replace(/###\s*/, '').replace(/\*\*/g, '')}</h4>;
+                    if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**') && !trimmedLine.includes(':')) return <h3 key={index} className="font-bold text-lg text-center text-gray-800 my-4">{trimmedLine.slice(2, -2)}</h3>;
+                    if (trimmedLine.startsWith('* ')) {
+                        const lineContent = trimmedLine.substring(2);
+                        const parts = lineContent.split(/(\*\*.*?\*\*)/g).filter(Boolean);
+                        return (
+                            <div key={index} className="flex text-gray-700 my-1"><span className="mr-2">&bull;</span>
+                                <div>{parts.map((part, i) => {
+                                    if (part.startsWith('**') && part.endsWith('**')) return <strong key={i} className="font-semibold text-gray-800">{part.slice(2, -2)}</strong>;
+                                    return <span key={i}>{part}</span>;
+                                })}</div>
+                            </div>
+                        );
+                    }
+                     if (trimmedLine.startsWith('**') && trimmedLine.includes(':**')) {
+                        const content = trimmedLine.replace(/\*\*/g, '');
+                        const parts = content.split(':');
+                        return <p key={index} className="text-gray-700 my-1"><strong className="font-semibold">{parts[0]}:</strong><span>{parts.slice(1).join(':')}</span></p>;
+                    }
+                    if (trimmedLine.length > 0) return <p key={index} className="text-gray-700 my-2">{trimmedLine}</p>;
+                    return null;
+                });
+                return <div className="font-sans">{elements}</div>;
+            };
 
-            // --- **FIXED & IMPROVED** PDF Generation Function ---
+            // *** UPDATED: PDF generation now cleans up symbols ***
             const handleDownloadPDF = () => {
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({ unit: 'pt', format: 'a4' });
-                let y = 40;
+                
+                const pageHeight = doc.internal.pageSize.getHeight();
+                const topMargin = 40;
+                const bottomMargin = 40;
                 const leftMargin = 40;
                 const rightMargin = 40;
-                const pageWidth = doc.internal.pageSize.getWidth();
-                const usableWidth = pageWidth - leftMargin - rightMargin;
+                const usableWidth = doc.internal.pageSize.getWidth() - leftMargin - rightMargin;
+                let y = topMargin;
+
+                const checkPageBreak = (heightNeeded) => {
+                    if (y + heightNeeded > pageHeight - bottomMargin) {
+                        doc.addPage();
+                        y = topMargin;
+                    }
+                };
 
                 const addText = (text, options = {}) => {
-                    const { size = 10, isBold = false, spaceAfter = 10, font = 'helvetica' } = options;
-                    if (y > doc.internal.pageSize.getHeight() - 40) { doc.addPage(); y = 40; }
+                    const { size = 10, isBold = false, spaceAfter = 10, font = 'helvetica', isListItem = false, isCentered = false } = options;
                     doc.setFont(font, isBold ? "bold" : "normal");
                     doc.setFontSize(size);
-                    const textLines = doc.splitTextToSize(text, usableWidth);
-                    doc.text(textLines, leftMargin, y);
-                    y += (textLines.length * size * 1.15) + spaceAfter;
-                };
+                    const lineHeight = size * 1.2;
+                    const splitWidth = usableWidth - (isListItem ? 15 : 0);
+                    const textLines = doc.splitTextToSize(text, splitWidth);
+                    
+                    checkPageBreak(textLines.length * lineHeight + spaceAfter);
 
-                const addBulletedText = (text) => {
-                    const bullet = "\u2022";
-                    const textLines = doc.splitTextToSize(text, usableWidth - 15);
-                    if (y > doc.internal.pageSize.getHeight() - 40) { doc.addPage(); y = 40; }
-                    doc.setFontSize(10);
-                    doc.setFont("helvetica", "normal");
-                    doc.text(`${bullet} ${textLines[0]}`, leftMargin + 5, y);
-                    if (textLines.length > 1) {
-                        doc.text(textLines.slice(1), leftMargin + 15, y + 10);
-                    }
-                    y += (textLines.length * 10) + 4;
+                    textLines.forEach((line, index) => {
+                        let lineX = leftMargin;
+                        if(isCentered) {
+                            const textWidth = doc.getStringUnitWidth(line) * doc.internal.getFontSize() / doc.internal.scaleFactor;
+                            lineX = (doc.internal.pageSize.getWidth() - textWidth) / 2;
+                        } else if (isListItem) {
+                            if (index === 0) doc.text('\u2022', leftMargin, y);
+                            lineX = leftMargin + 15;
+                        }
+                        doc.text(line, lineX, y);
+                        y += lineHeight;
+                    });
+                    y += spaceAfter;
                 };
-
-                // --- PDF Content ---
-                addText(`Case Analysis Report: ${report.caseNumber}`, { size: 18, isBold: true, spaceAfter: 20 });
                 
+                const addLine = (spaceAfter = 10) => {
+                    checkPageBreak(10 + spaceAfter);
+                    doc.setDrawColor(200);
+                    doc.line(leftMargin, y, doc.internal.pageSize.getWidth() - rightMargin, y);
+                    y += 10 + spaceAfter;
+                }
+
+                // --- PDF Content Generation ---
+                addText(`Case Analysis Report: ${report.caseNumber}`, { size: 18, isBold: true, spaceAfter: 20 });
                 addText("Client Details", { size: 14, isBold: true, spaceAfter: 5 });
                 addText(`Name: ${report.clientName}`);
                 addText(`Email: ${report.clientEmail}`);
-                addText(`Phone: ${report.clientPhone}`);
-                y += 10;
-
-                addText("AI-Powered Analysis", { size: 14, isBold: true, spaceAfter: 5 });
+                addText(`Phone: ${report.clientPhone}`, { spaceAfter: 20 });
+                
+                // --- Analysis Section ---
+                addText("AI-Powered Analysis", { size: 14, isBold: true, spaceAfter: 10 });
                 analysis.split('\n').forEach(line => {
                     const trimmedLine = line.trim();
+                    if (!trimmedLine) return;
                     if ((trimmedLine.startsWith('**') && trimmedLine.endsWith('**')) || trimmedLine.startsWith('###')) {
                         addText(trimmedLine.replace(/^###\s*/, '').replace(/\*\*/g, ''), { isBold: true, size: 11, spaceAfter: 5 });
                     } else if (trimmedLine.startsWith('*')) {
-                        addBulletedText(trimmedLine.slice(1).trim());
-                    } else if (trimmedLine.length > 0) {
+                        addText(trimmedLine.slice(1).trim(), { isListItem: true, spaceAfter: 2 });
+                    } else {
                         addText(trimmedLine, { size: 10, spaceAfter: 8 });
                     }
                 });
                 y += 10;
 
-                addText("Full Intake Report", { size: 14, isBold: true, spaceAfter: 5 });
-                addText(report.reportContent, { size: 9, font: 'courier' });
+                // --- Full Report Section (Formatted) ---
+                addText("Full Intake Report", { size: 14, isBold: true, spaceAfter: 10 });
+                report.reportContent.split('\n').forEach(line => {
+                    const trimmedLine = line.trim();
+                    if (trimmedLine === '***') {
+                        addLine();
+                    } else if (trimmedLine.startsWith('###')) {
+                        addText(trimmedLine.replace(/###\s*/, '').replace(/\*\*/g, ''), { size: 12, isBold: true, spaceAfter: 5 });
+                    } else if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**') && !trimmedLine.includes(':')) {
+                        addText(trimmedLine.slice(2, -2), { size: 14, isBold: true, isCentered: true, spaceAfter: 15 });
+                    } else if (trimmedLine.startsWith('* ')) {
+                        const content = trimmedLine.substring(2).replace(/\*\*(.*?)\*\*/g, '$1');
+                        addText(content, { isListItem: true, spaceAfter: 2 });
+                    } else if (trimmedLine.startsWith('**') && trimmedLine.includes(':**')) {
+                        const content = trimmedLine.replace(/\*\*/g, '');
+                        addText(content, { spaceAfter: 2 });
+                    } else if (trimmedLine.length > 0) {
+                        addText(trimmedLine, { spaceAfter: 8 });
+                    }
+                });
                 
                 doc.save(`Case-Report-${report.caseNumber}.pdf`);
             };
@@ -186,7 +312,9 @@
                             {isLoading ? (<div className="text-center p-8"><p className="text-gray-600">Generating analysis...</p></div>) : (<div className="prose prose-sm max-w-none text-gray-700">{renderFormattedText(analysis)}</div>)}
                             <hr className="my-6" />
                             <h3 className="text-lg font-bold text-gray-800 mb-2">Full Intake Report</h3>
-                            <pre className="bg-gray-50 p-4 rounded-md text-xs text-gray-700 whitespace-pre-wrap font-mono">{report.reportContent}</pre>
+                            <div className="bg-gray-50 p-4 rounded-md text-sm">
+                                {renderFullReport(report.reportContent)}
+                            </div>
                         </div>
                         <div className="p-4 border-t bg-gray-50 rounded-b-lg flex justify-between">
                             <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300">Close</button>
@@ -231,9 +359,8 @@
                 Your task is to provide a high-level analysis for the handling attorney.
                 Based on the report below, you MUST provide the following three sections. 
                 Use this exact formatting: use ** for bold headings (e.g., "**Case Strength:**") and * for bullet points (e.g., "* Item 1"). 
-                Do not use any other markdown like '###' or numbered lists.
                 
-                1. **Case Strength:** A percentage estimate and a brief, one-sentence justification.
+                1. **Case Strength:** A percentage estimate followed by a hyphen and a brief, one-sentence justification (e.g., "**Case Strength:** 75% - The client has strong evidence.").
                 2. **Recommendations:** A bulleted list of 3-4 immediate, actionable next steps.
                 3. **Required Documents:** A checklist of documents to request from the client.
 
