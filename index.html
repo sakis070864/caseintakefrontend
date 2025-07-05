@@ -39,7 +39,7 @@
             </div>
         );
 
-        const DashboardHeader = ({ onInternalInfoClick }) => {
+        const DashboardHeader = ({ onInternalInfoClick, onHowToUseClick }) => {
           const [copyMessage, setCopyMessage] = useState('');
           const handleCreateLinkClick = () => {
             const intakeLink = `https://caseintake-chat-bot.netlify.app`;
@@ -71,7 +71,10 @@
               <div>
                 <h1 className="text-2xl font-bold text-gray-800">LegalIntake Dashboard</h1>
                 <p className="text-sm text-gray-500">Manage client intake assessments</p>
-                <button onClick={onInternalInfoClick} className="text-xs text-blue-600 hover:underline mt-1">Internal Info</button>
+                <div className="flex gap-4">
+                    <button onClick={onInternalInfoClick} className="text-xs text-blue-600 hover:underline mt-1">Internal Info</button>
+                    <button onClick={onHowToUseClick} className="text-xs text-green-600 hover:underline mt-1">How to use the APP</button>
+                </div>
               </div>
               <div className="flex items-center gap-4">
                 <div className="relative">
@@ -333,6 +336,48 @@
             );
         };
 
+        const HowToUseModal = ({ onClose }) => {
+            const GuideStep = ({ title, imageSrc, children }) => (
+                <div className="mb-8">
+                    <h3 className="text-xl font-bold text-gray-800 mb-3">{title}</h3>
+                    <div className="text-gray-700 space-y-2 mb-4">{children}</div>
+                    <img src={imageSrc} alt={title} className="rounded-lg border border-gray-300 shadow-md" />
+                </div>
+            );
+
+            return (
+                 <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-2xl w-full max-w-3xl max-h-[90vh] flex flex-col">
+                         <div className="flex justify-between items-center p-4 border-b">
+                            <h2 className="text-2xl font-semibold text-gray-800">How to Use the Dashboard</h2>
+                            <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><XIcon /></button>
+                        </div>
+                        <div className="p-6 overflow-y-auto">
+                            <GuideStep title="1. Create an Intake Link" imageSrc="https://i.postimg.cc/NjnFZBfL/Ceate-Intake-Link.jpg">
+                                <p>Click the <strong>+ Create Intake Link</strong> button to copy the link for the client-facing chatbot. You can then send this link to your clients to start the intake process.</p>
+                            </GuideStep>
+                             <GuideStep title="2. Dashboard Overview" imageSrc="https://i.postimg.cc/mkcBYFCw/Dashboard-over-vew-boxes.jpg">
+                                <p>The boxes at the top give you a quick summary of your workload, including how many reports are pending review and how many have been completed this week.</p>
+                            </GuideStep>
+                             <GuideStep title="3. Recent Case Assessments" imageSrc="https://i.postimg.cc/VsHjzQ6Q/recent-case-assesements.jpg">
+                                <p>This table lists all the intake reports submitted by your clients. You can see the case number, client name, and other details at a glance. Click <strong>View Report</strong> to see the full details or <strong>Delete</strong> to remove a report.</p>
+                            </GuideStep>
+                             <GuideStep title="4. Generating the AI Analysis" imageSrc="https://i.postimg.cc/P58WJ673/generatinf-ai-analysis.jpg">
+                                <p>When you view a report, the system automatically starts generating a high-level AI analysis. This animation indicates that the AI is processing the information.</p>
+                            </GuideStep>
+                             <GuideStep title="5. Understanding the Report" imageSrc="https://i.postimg.cc/SNLY954j/Understanding-the-Report.jpg">
+                                <p>The AI-Powered Analysis section provides a visual <strong>Case Strength</strong> gauge, a summary, and actionable recommendations. Below this, you can find the complete, formatted transcript of the client's intake interview.</p>
+                                <p>Finally, you can click the <strong>Download as PDF</strong> button to save a clean, professional copy of the entire report for your records.</p>
+                            </GuideStep>
+                        </div>
+                         <div className="p-4 border-t bg-gray-50 rounded-b-lg flex justify-end">
+                            <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300">Close</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
 
         function App() {
           const [reports, setReports] = useState([]);
@@ -342,6 +387,7 @@
           const [isAnalysisLoading, setIsAnalysisLoading] = useState(false);
           const [showLoginModal, setShowLoginModal] = useState(false);
           const [showInternalInfoModal, setShowInternalInfoModal] = useState(false);
+          const [showHowToUseModal, setShowHowToUseModal] = useState(false);
 
           const backendUrl = 'https://caseintake.onrender.com';
 
@@ -396,7 +442,6 @@
             }
           };
 
-          // *** UPDATED: Secure login handler ***
           const handleLoginSubmit = async (password) => {
             try {
                 const response = await fetch(`${backendUrl}/api/internal-login`, {
@@ -408,13 +453,13 @@
                 if (data.success) {
                     setShowInternalInfoModal(true);
                     setShowLoginModal(false);
-                    return true; // Indicate success
+                    return true;
                 } else {
-                    return false; // Indicate failure
+                    return false;
                 }
             } catch (error) {
                 console.error("Login error:", error);
-                return false; // Indicate failure
+                return false;
             }
           };
 
@@ -423,7 +468,10 @@
 
           return (
             <div className="bg-gray-50 min-h-screen">
-              <DashboardHeader onInternalInfoClick={() => setShowLoginModal(true)} />
+              <DashboardHeader 
+                onInternalInfoClick={() => setShowLoginModal(true)} 
+                onHowToUseClick={() => setShowHowToUseModal(true)}
+              />
               <main className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
                   <StatCard title="Pending Reviews" value={pendingReviews} icon={<ClockIcon />} />
@@ -468,6 +516,7 @@
               
               {showLoginModal && <LoginModal onGo={handleLoginSubmit} onClose={() => setShowLoginModal(false)} />}
               {showInternalInfoModal && <InternalInfoModal onClose={() => setShowInternalInfoModal(false)} />}
+              {showHowToUseModal && <HowToUseModal onClose={() => setShowHowToUseModal(false)} />}
             </div>
           );
         }
