@@ -39,33 +39,45 @@
             </div>
         );
 
-        const DashboardHeader = ({ onInternalInfoClick, onHowToUseClick }) => {
+        const DashboardHeader = ({ onInternalInfoClick, onHowToUseClick, backendUrl }) => {
           const [copyMessage, setCopyMessage] = useState('');
-          const handleCreateLinkClick = () => {
-            const intakeLink = `https://caseintake-chat-bot.netlify.app`;
+          const [isCreatingLink, setIsCreatingLink] = useState(false);
+
+          const handleCreateLinkClick = async () => {
+            setIsCreatingLink(true);
+            setCopyMessage('Creating secure link...');
             try {
-                const textArea = document.createElement("textarea");
-                textArea.value = intakeLink;
-                textArea.style.position = "fixed";
-                textArea.style.top = 0;
-                textArea.style.left = 0;
-                textArea.style.opacity = 0;
-                document.body.appendChild(textArea);
-                textArea.focus();
-                textArea.select();
-                const successful = document.execCommand('copy');
-                if (successful) {
-                    setCopyMessage('Link copied! Paste it into your browser to open the chatbot.');
+                const response = await fetch(`${backendUrl}/api/generate-token`, { method: 'POST' });
+                const data = await response.json();
+
+                if (data.success) {
+                    const intakeLink = `https://caseintake-chat-bot.netlify.app/?token=${data.token}`;
+                    
+                    const textArea = document.createElement("textarea");
+                    textArea.value = intakeLink;
+                    textArea.style.position = "fixed";
+                    textArea.style.top = 0;
+                    textArea.style.left = 0;
+                    textArea.style.opacity = 0;
+                    document.body.appendChild(textArea);
+                    textArea.focus();
+                    textArea.select();
+                    document.execCommand('copy');
+                    document.body.removeChild(textArea);
+
+                    setCopyMessage('Secure link copied!');
                 } else {
-                    setCopyMessage('Error: Could not copy link.');
+                    throw new Error(data.error || 'Failed to create link.');
                 }
-                document.body.removeChild(textArea);
             } catch (err) {
-                console.error('Failed to copy text: ', err);
-                setCopyMessage('Error: Could not copy link.');
+                console.error('Failed to create link: ', err);
+                setCopyMessage('Error: Could not create link.');
+            } finally {
+                setIsCreatingLink(false);
+                setTimeout(() => { setCopyMessage(''); }, 4000);
             }
-            setTimeout(() => { setCopyMessage(''); }, 4000);
           };
+
           return (
             <header className="flex justify-between items-center p-6 bg-white border-b border-gray-200">
               <div>
@@ -78,8 +90,8 @@
               </div>
               <div className="flex items-center gap-4">
                 <div className="relative">
-                  <button onClick={handleCreateLinkClick} className="px-4 py-2 font-semibold rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-200 bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500">
-                    + Create Intake Link
+                  <button onClick={handleCreateLinkClick} disabled={isCreatingLink} className="px-4 py-2 font-semibold rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-200 bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 disabled:bg-blue-300">
+                    {isCreatingLink ? 'Creating...' : '+ Create Intake Link'}
                   </button>
                   {copyMessage && (<div className="absolute top-full mt-2 w-max bg-gray-800 text-white text-sm rounded-md py-2 px-3 shadow-lg z-10">{copyMessage}</div>)}
                 </div>
@@ -471,6 +483,7 @@
               <DashboardHeader 
                 onInternalInfoClick={() => setShowLoginModal(true)} 
                 onHowToUseClick={() => setShowHowToUseModal(true)}
+                backendUrl={backendUrl}
               />
               <main className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
