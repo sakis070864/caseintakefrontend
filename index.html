@@ -172,13 +172,32 @@
                 flushList();
                 return elements;
             };
+            
+            // FIX: This function is updated to handle the problematic formatting.
             const renderFullReport = (text) => {
                 if (!text) return null;
                 const elements = text.split('\n').map((line, index) => {
                     const trimmedLine = line.trim();
+                    
+                    // Regex to match lines like "1.**Title** Description"
+                    const numberedBoldTitleRegex = /^\d+\.\s*\*\*(.*?)\*\*\s*(.*)/;
+                    const numberedMatch = trimmedLine.match(numberedBoldTitleRegex);
+
                     if (trimmedLine === '***') return <hr key={index} className="my-4 border-gray-300" />;
                     if (trimmedLine.startsWith('###')) return <h4 key={index} className="font-semibold text-gray-900 mt-5 mb-2">{trimmedLine.replace(/###\s*/, '').replace(/\*\*/g, '')}</h4>;
                     if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**') && !trimmedLine.includes(':')) return <h3 key={index} className="font-bold text-lg text-center text-gray-800 my-4">{trimmedLine.slice(2, -2)}</h3>;
+                    
+                    // New condition to handle numbered lists with bold titles
+                    if (numberedMatch) {
+                        const title = numberedMatch[1];
+                        const description = numberedMatch[2];
+                        return (
+                            <p key={index} className="text-gray-700 my-1 pl-4">
+                                <strong className="font-semibold">{title}:</strong> {description}
+                            </p>
+                        );
+                    }
+
                     if (trimmedLine.startsWith('* ')) {
                         const lineContent = trimmedLine.substring(2);
                         const parts = lineContent.split(/(\*\*.*?\*\*)/g).filter(Boolean);
@@ -194,6 +213,7 @@
                 });
                 return <div className="font-sans">{elements}</div>;
             };
+
             const handleDownloadPDF = () => {
                 const { jsPDF } = window.jspdf;
                 const doc = new jsPDF({ unit: 'pt', format: 'a4' });
