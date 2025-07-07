@@ -39,45 +39,7 @@
             </div>
         );
 
-        const DashboardHeader = ({ onInternalInfoClick, onHowToUseClick, backendUrl }) => {
-          const [copyMessage, setCopyMessage] = useState('');
-          const [isCreatingLink, setIsCreatingLink] = useState(false);
-
-          const handleCreateLinkClick = async () => {
-            setIsCreatingLink(true);
-            setCopyMessage('Creating secure link...');
-            try {
-                const response = await fetch(`${backendUrl}/api/generate-token`, { method: 'POST' });
-                const data = await response.json();
-
-                if (data.success) {
-                    const intakeLink = `https://caseintake-chat-bot.netlify.app/?token=${data.token}`;
-                    
-                    const textArea = document.createElement("textarea");
-                    textArea.value = intakeLink;
-                    textArea.style.position = "fixed";
-                    textArea.style.top = 0;
-                    textArea.style.left = 0;
-                    textArea.style.opacity = 0;
-                    document.body.appendChild(textArea);
-                    textArea.focus();
-                    textArea.select();
-                    document.execCommand('copy');
-                    document.body.removeChild(textArea);
-
-                    setCopyMessage('Secure link copied!');
-                } else {
-                    throw new Error(data.error || 'Failed to create link.');
-                }
-            } catch (err) {
-                console.error('Failed to create link: ', err);
-                setCopyMessage('Error: Could not create link.');
-            } finally {
-                setIsCreatingLink(false);
-                setTimeout(() => { setCopyMessage(''); }, 4000);
-            }
-          };
-
+        const DashboardHeader = ({ onInternalInfoClick, onHowToUseClick, onCreateIntakeLink }) => {
           return (
             <header className="flex justify-between items-center p-6 bg-white border-b border-gray-200">
               <div>
@@ -89,12 +51,9 @@
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                <div className="relative">
-                  <button onClick={handleCreateLinkClick} disabled={isCreatingLink} className="px-4 py-2 font-semibold rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-200 bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500 disabled:bg-blue-300">
-                    {isCreatingLink ? 'Creating...' : '+ Create Intake Link'}
-                  </button>
-                  {copyMessage && (<div className="absolute top-full mt-2 w-max bg-gray-800 text-white text-sm rounded-md py-2 px-3 shadow-lg z-10">{copyMessage}</div>)}
-                </div>
+                <button onClick={onCreateIntakeLink} className="px-4 py-2 font-semibold rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-200 bg-blue-600 text-white hover:bg-blue-700 focus:ring-blue-500">
+                  + Create Intake Link
+                </button>
                 <div className="flex items-center gap-3"><div className="w-10 h-10 rounded-full bg-slate-700 flex items-center justify-center text-white font-bold text-lg">SJ</div><div><p className="font-semibold text-gray-800">Sarah Johnson</p><p className="text-xs text-gray-500">Attorney</p></div></div>
               </div>
             </header>
@@ -361,7 +320,6 @@
             );
         };
         
-        // FIX: New component for delete confirmation
         const DeleteConfirmationModal = ({ onConfirm, onCancel }) => (
             <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50">
                 <div className="bg-white rounded-lg shadow-2xl p-8 w-full max-w-sm text-center">
@@ -374,6 +332,65 @@
                 </div>
             </div>
         );
+        
+        const CredentialsModal = ({ caseId, passcode, onClose }) => {
+            const [copyText, setCopyText] = useState('Copy Link');
+            const chatbotUrl = `https://caseintake-chat-bot.netlify.app/?caseId=${caseId}&passcode=${passcode}`;
+
+            const handleCopy = () => {
+                // FIX: Use document.execCommand for better compatibility in iframes
+                const textArea = document.createElement("textarea");
+                textArea.value = chatbotUrl;
+                textArea.style.position = "fixed"; // Avois scrolling to bottom
+                textArea.style.top = 0;
+                textArea.style.left = 0;
+                textArea.style.opacity = 0;
+                document.body.appendChild(textArea);
+                textArea.focus();
+                textArea.select();
+                try {
+                    document.execCommand('copy');
+                    setCopyText('Copied!');
+                } catch (err) {
+                    setCopyText('Failed!');
+                }
+                document.body.removeChild(textArea);
+
+                setTimeout(() => setCopyText('Copy Link'), 2000);
+            };
+
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-60 flex justify-center items-center z-50 p-4">
+                    <div className="bg-white rounded-lg shadow-2xl w-full max-w-md">
+                        <div className="flex justify-between items-center p-4 border-b">
+                            <h2 className="text-xl font-semibold text-gray-800">Intake Link Created</h2>
+                            <button onClick={onClose} className="text-gray-500 hover:text-gray-800"><XIcon /></button>
+                        </div>
+                        <div className="p-6 space-y-4">
+                            <p className="text-gray-600">Share the following credentials with your client. The link is single-use and will expire after the intake is completed.</p>
+                            <div>
+                                <label className="text-sm font-bold text-gray-700">Case ID</label>
+                                <p className="font-mono bg-gray-100 p-2 rounded mt-1">{caseId}</p>
+                            </div>
+                            <div>
+                                <label className="text-sm font-bold text-gray-700">Passcode</label>
+                                <p className="font-mono bg-gray-100 p-2 rounded mt-1">{passcode}</p>
+                            </div>
+                            <div>
+                                <label className="text-sm font-bold text-gray-700">Client Link</label>
+                                <div className="flex gap-2 mt-1">
+                                    <input type="text" readOnly value={chatbotUrl} className="w-full p-2 border rounded-md bg-gray-100 font-mono text-sm" />
+                                    <button onClick={handleCopy} className="px-4 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 whitespace-nowrap">{copyText}</button>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="p-4 border-t bg-gray-50 rounded-b-lg flex justify-end">
+                            <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300">Close</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
 
         const InternalInfoModal = ({ onClose }) => {
             const resources = {
@@ -473,8 +490,8 @@
           const [showLoginModal, setShowLoginModal] = useState(false);
           const [showInternalInfoModal, setShowInternalInfoModal] = useState(false);
           const [showHowToUseModal, setShowHowToUseModal] = useState(false);
-          // FIX: State to manage the delete confirmation modal
           const [reportToDelete, setReportToDelete] = useState(null);
+          const [generatedCredentials, setGeneratedCredentials] = useState(null);
 
           const backendUrl = 'https://caseintake.onrender.com';
 
@@ -522,21 +539,33 @@
             finally { setIsAnalysisLoading(false); }
           };
 
-          // FIX: This function now just opens the confirmation modal
           const handleDeleteReport = (reportId) => {
             setReportToDelete(reportId);
           };
           
-          // FIX: This new function handles the actual deletion
           const executeDelete = async () => {
               if (!reportToDelete) return;
               try {
                   await fetch(`${backendUrl}/api/reports/${reportToDelete}`, { method: 'DELETE' });
-                  setReportToDelete(null); // Close the modal
-                  fetchReports(); // Refresh the list
+                  setReportToDelete(null); 
+                  fetchReports(); 
               } catch (error) {
                   console.error("Failed to delete report:", error);
-                  setReportToDelete(null); // Close the modal even if it fails
+                  setReportToDelete(null);
+              }
+          };
+          
+          const handleCreateIntakeLink = async () => {
+              try {
+                  const response = await fetch(`${backendUrl}/api/create-intake-credentials`, { method: 'POST' });
+                  const data = await response.json();
+                  if (data.success) {
+                      setGeneratedCredentials({ caseId: data.caseId, passcode: data.passcode });
+                  } else {
+                      console.error("Failed to create credentials:", data.error);
+                  }
+              } catch (error) {
+                  console.error("Error calling create credentials endpoint:", error);
               }
           };
 
@@ -569,7 +598,7 @@
               <DashboardHeader 
                 onInternalInfoClick={() => setShowLoginModal(true)} 
                 onHowToUseClick={() => setShowHowToUseModal(true)}
-                backendUrl={backendUrl}
+                onCreateIntakeLink={handleCreateIntakeLink}
               />
               <main className="p-6">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
@@ -613,8 +642,9 @@
               </main>
               {selectedReport && <ReportModal report={selectedReport} analysis={analysis} isLoading={isAnalysisLoading} onClose={() => setSelectedReport(null)} />}
               
-              {/* FIX: Render the custom delete confirmation modal */}
               {reportToDelete && <DeleteConfirmationModal onConfirm={executeDelete} onCancel={() => setReportToDelete(null)} />}
+              
+              {generatedCredentials && <CredentialsModal caseId={generatedCredentials.caseId} passcode={generatedCredentials.passcode} onClose={() => setGeneratedCredentials(null)} />}
 
               {showLoginModal && <LoginModal onGo={handleLoginSubmit} onClose={() => setShowLoginModal(false)} />}
               {showInternalInfoModal && <InternalInfoModal onClose={() => setShowInternalInfoModal(false)} />}
