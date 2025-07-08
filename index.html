@@ -34,13 +34,13 @@
                         <path d="M12 2C9.243 2 7 4.243 7 7v3.5c0 .276-.224-.5-.5-.5S6 10.776 6 10.5V7c0-3.309 2.691-6 6-6s6 2.691 6 6v3.5c0 .276-.224.5-.5.5s-.5-.224-.5-.5V7c0-2.757-2.243-5-5-5zM9 14c-1.103 0-2 .897-2 2v2c0 1.103.897 2 2 2h6c1.103 0 2-.897 2-2v-2c0-1.103-.897-2-2-2H9z"></path>
                     </svg>
                 </div>
-                <p className="mt-4 text-lg font-semibold text-gray-700">Generating AI Analysis...</p>
+                <p className="mt-4 text-lg font-semibold text-gray-700">Generating AI Analysis & Report...</p>
                 <p className="text-sm text-gray-500">This may take a moment.</p>
             </div>
         );
 
         const DashboardHeader = ({ onInternalInfoClick, onHowToUseClick, onCreateIntakeLink }) => {
-          return (
+         return (
             <header className="flex justify-between items-center p-6 bg-white border-b border-gray-200">
               <div>
                 <h1 className="text-2xl font-bold text-gray-800">LegalIntake Dashboard</h1>
@@ -87,8 +87,9 @@
             );
         };
 
-        const ReportModal = ({ report, analysis, onClose, isLoading }) => {
+        const ReportModal = ({ report, analysis, formattedReport, onClose, isLoading }) => {
             if (!report) return null;
+            
             const renderFormattedText = (text) => {
                 if (!text) return null;
                 const strengthRegex = /\*\*Case Strength:\*\*\s*(\d+)%\s*-\s*(.*)/;
@@ -133,83 +134,17 @@
             };
             
             const renderFullReport = (text) => {
-                if (!text) return null;
-
+                if (!text) return <p>Formatting report...</p>;
                 const lines = text.split('\n');
-                const elements = [];
-                let sectionBuffer = [];
-                let currentSectionType = null; 
-
-                const flushSectionBuffer = () => {
-                    if (sectionBuffer.length > 0) {
-                        let sectionClasses = 'p-4 rounded-lg my-4';
-                        if (currentSectionType === 'legal') sectionClasses += ' bg-blue-100 border border-blue-200';
-                        if (currentSectionType === 'documents') sectionClasses += ' bg-green-100 border border-green-200';
-                        
-                        elements.push(
-                            <div key={`section-${elements.length}`} className={sectionClasses}>
-                                {sectionBuffer}
-                            </div>
-                        );
-                        sectionBuffer = [];
-                    }
-                };
-
-                lines.forEach((line, index) => {
+                return lines.map((line, index) => {
                     const trimmedLine = line.trim();
-                    const isLegalHeader = trimmedLine.includes('Potential Legal Issues');
-                    const isDocsHeader = trimmedLine.includes('Required Documents');
-                    const isOtherHeader = trimmedLine.startsWith('###') || (trimmedLine.startsWith('**') && trimmedLine.endsWith('**') && !trimmedLine.includes(':'));
-
-                    if (isLegalHeader || isDocsHeader || isOtherHeader) {
-                        flushSectionBuffer();
-                        if (isLegalHeader) {
-                            currentSectionType = 'legal';
-                        } else if (isDocsHeader) {
-                            currentSectionType = 'documents';
-                        } else {
-                            currentSectionType = null;
-                        }
-                    }
-
-                    let lineElement = null;
-                    const numberedBoldTitleRegex = /^\d+\.\s*\*\*(.*?)\*\*\s*(.*)/;
-                    const numberedMatch = trimmedLine.match(numberedBoldTitleRegex);
-
-                    if (trimmedLine === '***') lineElement = <hr key={index} className="my-4 border-gray-300" />;
-                    else if (trimmedLine.startsWith('###')) lineElement = <h4 key={index} className="font-semibold text-gray-900 mt-5 mb-2">{trimmedLine.replace(/###\s*/, '').replace(/\*\*/g, '')}</h4>;
-                    else if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**') && !trimmedLine.includes(':')) lineElement = <h3 key={index} className="font-bold text-lg text-center text-gray-800 my-4">{trimmedLine.slice(2, -2)}</h3>;
-                    else if (numberedMatch) {
-                        lineElement = (
-                            <p key={index} className="text-gray-700 my-1 pl-4">
-                                <strong className="font-semibold">{numberedMatch[1]}:</strong> {numberedMatch[2]}
-                            </p>
-                        );
-                    }
-                    else if (trimmedLine.startsWith('* ')) {
-                        const lineContent = trimmedLine.substring(2);
-                        const parts = lineContent.split(/(\*\*.*?\*\*)/g).filter(Boolean);
-                        lineElement = (<div key={index} className="flex text-gray-700 my-1"><span className="mr-2">&bull;</span><div>{parts.map((part, i) => { if (part.startsWith('**') && part.endsWith('**')) return <strong key={i} className="font-semibold text-gray-800">{part.slice(2, -2)}</strong>; return <span key={i}>{part}</span>; })}</div></div>);
-                    }
-                    else if (trimmedLine.startsWith('**') && trimmedLine.includes(':**')) {
-                        const content = trimmedLine.replace(/\*\*/g, '');
-                        const parts = content.split(':');
-                        lineElement = <p key={index} className="text-gray-700 my-1"><strong className="font-semibold">{parts[0]}:</strong><span>{parts.slice(1).join(':')}</span></p>;
-                    }
-                    else if (trimmedLine.length > 0) lineElement = <p key={index} className="text-gray-700 my-2">{trimmedLine}</p>;
-
-                    if(lineElement) {
-                        if (currentSectionType) {
-                            sectionBuffer.push(lineElement);
-                        } else {
-                            elements.push(lineElement);
-                        }
-                    }
+                    if (trimmedLine === '***') return <hr key={index} className="my-4 border-gray-300" />;
+                    if (trimmedLine.startsWith('###')) return <h4 key={index} className="font-semibold text-gray-900 mt-5 mb-2">{trimmedLine.replace(/###\s*/, '').replace(/\*\*/g, '')}</h4>;
+                    if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**')) return <h3 key={index} className="font-bold text-lg text-center text-gray-800 my-4">{trimmedLine.slice(2, -2)}</h3>;
+                    if (trimmedLine.startsWith('* ')) return <p key={index} className="my-1 ml-4">{`• ${trimmedLine.slice(2)}`}</p>;
+                    if (trimmedLine.length > 0) return <p key={index} className="my-2">{trimmedLine}</p>;
+                    return null;
                 });
-                
-                flushSectionBuffer();
-
-                return <div className="font-sans">{elements}</div>;
             };
 
             const handleDownloadPDF = () => {
@@ -219,7 +154,9 @@
                 const topMargin = 40; const bottomMargin = 40; const leftMargin = 40; const rightMargin = 40;
                 const usableWidth = doc.internal.pageSize.getWidth() - leftMargin - rightMargin;
                 let y = topMargin;
+
                 const checkPageBreak = (heightNeeded) => { if (y + heightNeeded > pageHeight - bottomMargin) { doc.addPage(); y = topMargin; } };
+                
                 const addText = (text, options = {}) => {
                     const { size = 10, isBold = false, spaceAfter = 10, font = 'helvetica', isListItem = false, isCentered = false } = options;
                     doc.setFont(font, isBold ? "bold" : "normal");
@@ -237,12 +174,14 @@
                     });
                     y += spaceAfter;
                 };
-                const addLine = (spaceAfter = 10) => { checkPageBreak(10 + spaceAfter); doc.setDrawColor(200); doc.line(leftMargin, y, doc.internal.pageSize.getWidth() - rightMargin, y); y += 10 + spaceAfter; };
-                addText(`Case Analysis Report: ${report.caseNumber}`, { size: 18, isBold: true, spaceAfter: 20 });
+
+                addText(`Case Analysis Report: ${report.caseNumber}`, { size: 18, isBold: true, spaceAfter: 20, isCentered: true });
+                
                 addText("Client Details", { size: 14, isBold: true, spaceAfter: 5 });
                 addText(`Name: ${report.clientName}`);
                 addText(`Email: ${report.clientEmail}`);
-                addText(`Phone: ${report.clientPhone}`, { spaceAfter: 20 });
+                addText(`Phone: ${report.clientPhone || 'N/A'}`, { spaceAfter: 20 });
+
                 addText("AI-Powered Analysis", { size: 14, isBold: true, spaceAfter: 10 });
                 analysis.split('\n').forEach(line => {
                     const trimmedLine = line.trim();
@@ -252,18 +191,21 @@
                     else { addText(trimmedLine, { size: 10, spaceAfter: 8 }); }
                 });
                 y += 10;
+
                 addText("Full Intake Report", { size: 14, isBold: true, spaceAfter: 10 });
-                report.reportContent.split('\n').forEach(line => {
+                (formattedReport || '').split('\n').forEach(line => {
                     const trimmedLine = line.trim();
-                    if (trimmedLine === '***') { addLine(); }
+                    if (trimmedLine === '***') { y+= 5; doc.setDrawColor(200); doc.line(leftMargin, y, doc.internal.pageSize.getWidth() - rightMargin, y); y += 15; }
                     else if (trimmedLine.startsWith('###')) { addText(trimmedLine.replace(/###\s*/, '').replace(/\*\*/g, ''), { size: 12, isBold: true, spaceAfter: 5 }); }
                     else if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**') && !trimmedLine.includes(':')) { addText(trimmedLine.slice(2, -2), { size: 14, isBold: true, isCentered: true, spaceAfter: 15 }); }
-                    else if (trimmedLine.startsWith('* ')) { const content = trimmedLine.substring(2).replace(/\*\*(.*?)\*\*/g, '$1'); addText(content, { isListItem: true, spaceAfter: 2 }); }
-                    else if (trimmedLine.startsWith('**') && trimmedLine.includes(':**')) { const content = trimmedLine.replace(/\*\*/g, ''); addText(content, { spaceAfter: 2 }); }
+                    else if (trimmedLine.startsWith('* ')) { addText(trimmedLine.substring(2), { isListItem: true, spaceAfter: 2 }); }
+                    else if (trimmedLine.startsWith('**') && trimmedLine.includes(':**')) { addText(trimmedLine.replace(/\*\*/g, ''), { spaceAfter: 2 }); }
                     else if (trimmedLine.length > 0) { addText(trimmedLine, { spaceAfter: 8 }); }
                 });
+
                 doc.save(`Case-Report-${report.caseNumber}.pdf`);
             };
+
             return (
                 <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50 p-4">
                     <div className="bg-white rounded-lg shadow-2xl w-full max-w-4xl max-h-[90vh] flex flex-col">
@@ -278,11 +220,13 @@
                             {isLoading ? <AnalysisLoadingAnimation /> : <div className="prose prose-sm max-w-none text-gray-700">{renderFormattedText(analysis)}</div>}
                             <hr className="my-6" />
                             <h3 className="text-lg font-bold text-gray-800 mb-2">Full Intake Report</h3>
-                            <div className="bg-gray-50 p-4 rounded-md text-sm">{renderFullReport(report.reportContent)}</div>
+                            <div className="bg-gray-50 p-4 rounded-md text-sm">
+                                {isLoading ? <p>Formatting report...</p> : renderFullReport(formattedReport)}
+                            </div>
                         </div>
                         <div className="p-4 border-t bg-gray-50 rounded-b-lg flex justify-between">
                             <button onClick={onClose} className="px-4 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300">Close</button>
-                            <button onClick={handleDownloadPDF} className="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700">Download as PDF</button>
+                            <button onClick={handleDownloadPDF} disabled={isLoading} className="px-4 py-2 bg-green-600 text-white font-semibold rounded-lg hover:bg-green-700 disabled:bg-green-300">Download as PDF</button>
                         </div>
                     </div>
                 </div>
@@ -338,10 +282,9 @@
             const chatbotUrl = `https://caseintake-chat-bot.netlify.app/?caseId=${caseId}&passcode=${passcode}`;
 
             const handleCopy = () => {
-                // FIX: Use document.execCommand for better compatibility in iframes
                 const textArea = document.createElement("textarea");
                 textArea.value = chatbotUrl;
-                textArea.style.position = "fixed"; // Avois scrolling to bottom
+                textArea.style.position = "fixed";
                 textArea.style.top = 0;
                 textArea.style.left = 0;
                 textArea.style.opacity = 0;
@@ -355,7 +298,6 @@
                     setCopyText('Failed!');
                 }
                 document.body.removeChild(textArea);
-
                 setTimeout(() => setCopyText('Copy Link'), 2000);
             };
 
@@ -486,6 +428,7 @@
           const [loading, setLoading] = useState(true);
           const [selectedReport, setSelectedReport] = useState(null);
           const [analysis, setAnalysis] = useState('');
+          const [formattedReport, setFormattedReport] = useState(''); // <-- NEW state for formatted report
           const [isAnalysisLoading, setIsAnalysisLoading] = useState(false);
           const [showLoginModal, setShowLoginModal] = useState(false);
           const [showInternalInfoModal, setShowInternalInfoModal] = useState(false);
@@ -511,31 +454,49 @@
             setSelectedReport(report);
             setIsAnalysisLoading(true);
             setAnalysis('');
-            const analysisPrompt = `
-                You are a senior partner in a law firm reviewing a case intake report. 
-                Your task is to provide a high-level analysis for the handling attorney.
-                Based on the report below, you MUST provide the following three sections. 
-                Use this exact formatting: use ** for bold headings (e.g., "**Case Strength:**") and * for bullet points (e.g., "* Item 1"). 
-                
-                1. **Case Strength:** A percentage estimate followed by a hyphen and a brief, one-sentence justification (e.g., "**Case Strength:** 75% - The client has strong evidence.").
-                2. **Recommendations:** A bulleted list of 3-4 immediate, actionable next steps.
-                3. **Required Documents:** A checklist of documents to request from the client.
+            setFormattedReport(''); // Clear previous formatted report
 
-                Here is the intake report:
-                ---
-                ${report.reportContent}
-                ---
-            `;
+            // --- TWO-STEP PROCESS ---
             try {
-                const response = await fetch(`${backendUrl}/api/gemini`, {
+                // Step 1: Get the AI analysis (for the top section)
+                const analysisPrompt = `
+                    You are a senior partner in a law firm reviewing a case intake report. 
+                    Your task is to provide a high-level analysis for the handling attorney.
+                    Based on the report below, you MUST provide the following three sections. 
+                    Use this exact formatting: use ** for bold headings (e.g., "**Case Strength:**") and * for bullet points (e.g., "* Item 1"). 
+                    
+                    1. **Case Strength:** A percentage estimate followed by a hyphen and a brief, one-sentence justification (e.g., "**Case Strength:** 75% - The client has strong evidence.").
+                    2. **Recommendations:** A bulleted list of 3-4 immediate, actionable next steps.
+                    3. **Required Documents:** A checklist of documents to request from the client.
+
+                    Here is the intake report:
+                    ---
+                    ${report.reportContent}
+                    ---
+                `;
+                const analysisResponse = await fetch(`${backendUrl}/api/gemini`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ prompt: analysisPrompt })
                 });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.error || "Failed to generate analysis");
-                setAnalysis(data.candidates[0].content.parts[0].text.trim());
-            } catch (error) { setAnalysis(`Failed to generate analysis: ${error.message}`); }
+                const analysisData = await analysisResponse.json();
+                if (!analysisResponse.ok) throw new Error(analysisData.error || "Failed to generate analysis");
+                setAnalysis(analysisData.candidates[0].content.parts[0].text.trim());
+
+                // Step 2: Get the fully formatted report (for the bottom section and PDF)
+                const formatResponse = await fetch(`${backendUrl}/api/format-report`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ reportData: report.reportContent })
+                });
+                const formatData = await formatResponse.json();
+                if (!formatResponse.ok) throw new Error(formatData.error || "Failed to format report");
+                setFormattedReport(formatData.formattedReport);
+
+            } catch (error) { 
+                setAnalysis(`Failed to generate analysis: ${error.message}`);
+                setFormattedReport(`Failed to format report: ${error.message}`);
+            }
             finally { setIsAnalysisLoading(false); }
           };
 
@@ -640,7 +601,7 @@
                   </div>
                 </div>
               </main>
-              {selectedReport && <ReportModal report={selectedReport} analysis={analysis} isLoading={isAnalysisLoading} onClose={() => setSelectedReport(null)} />}
+              {selectedReport && <ReportModal report={selectedReport} analysis={analysis} formattedReport={formattedReport} isLoading={isAnalysisLoading} onClose={() => setSelectedReport(null)} />}
               
               {reportToDelete && <DeleteConfirmationModal onConfirm={executeDelete} onCancel={() => setReportToDelete(null)} />}
               
