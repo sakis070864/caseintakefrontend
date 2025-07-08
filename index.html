@@ -428,7 +428,7 @@
           const [loading, setLoading] = useState(true);
           const [selectedReport, setSelectedReport] = useState(null);
           const [analysis, setAnalysis] = useState('');
-          const [formattedReport, setFormattedReport] = useState(''); // <-- NEW state for formatted report
+          const [formattedReport, setFormattedReport] = useState('');
           const [isAnalysisLoading, setIsAnalysisLoading] = useState(false);
           const [showLoginModal, setShowLoginModal] = useState(false);
           const [showInternalInfoModal, setShowInternalInfoModal] = useState(false);
@@ -454,11 +454,9 @@
             setSelectedReport(report);
             setIsAnalysisLoading(true);
             setAnalysis('');
-            setFormattedReport(''); // Clear previous formatted report
+            setFormattedReport('');
 
-            // --- TWO-STEP PROCESS ---
             try {
-                // Step 1: Get the AI analysis (for the top section)
                 const analysisPrompt = `
                     You are a senior partner in a law firm reviewing a case intake report. 
                     Your task is to provide a high-level analysis for the handling attorney.
@@ -483,11 +481,27 @@
                 if (!analysisResponse.ok) throw new Error(analysisData.error || "Failed to generate analysis");
                 setAnalysis(analysisData.candidates[0].content.parts[0].text.trim());
 
-                // Step 2: Get the fully formatted report (for the bottom section and PDF)
+                // **FIX**: Check for createdAt field and format it robustly in the user's local timezone.
+                let formattedDateTime = 'Date not available';
+                if (report.createdAt && report.createdAt._seconds) {
+                    const reportDate = new Date(report.createdAt._seconds * 1000);
+                    formattedDateTime = reportDate.toLocaleString(undefined, {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        timeZoneName: 'short'
+                    });
+                }
+
                 const formatResponse = await fetch(`${backendUrl}/api/format-report`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ reportData: report.reportContent })
+                    body: JSON.stringify({ 
+                        reportData: report.reportContent,
+                        formattedDateTime: formattedDateTime // Send the pre-formatted string
+                    })
                 });
                 const formatData = await formatResponse.json();
                 if (!formatResponse.ok) throw new Error(formatData.error || "Failed to format report");
@@ -552,13 +566,13 @@
           };
 
           const pendingReviews = reports.length;
-          const completedThisWeek = reports.filter(r => new Date(r.createdAt._seconds * 1000) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length;
+          const completedThisWeek = reports.filter(r => new Date(r.createdAt?._seconds * 1000) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length;
 
           return (
             <div className="bg-gray-50 min-h-screen">
               <DashboardHeader 
                 onInternalInfoClick={() => setShowLoginModal(true)} 
-                onHowToUseClick={() => setShowHowToUseModal(true)}
+                onHowToUseClick={() => setShowHowToUseClick(true)}
                 onCreateIntakeLink={handleCreateIntakeLink}
               />
               <main className="p-6">
@@ -589,7 +603,7 @@
                             <td className="px-6 py-4 font-mono text-xs text-gray-500">{report.caseNumber}</td>
                             <td className="px-6 py-4 font-medium text-gray-900">{report.clientName}</td>
                             <td className="px-6 py-4">{report.clientEmail}</td>
-                            <td className="px-6 py-4">{new Date(report.createdAt._seconds * 1000).toLocaleDateString()}</td>
+                            <td className="px-6 py-4">{new Date(report.createdAt?._seconds * 1000).toLocaleDateString()}</td>
                             <td className="px-6 py-4 flex items-center gap-4">
                               <button onClick={() => handleViewReport(report)} className="font-medium text-blue-600 hover:underline">View Report</button>
                               <button onClick={() => handleDeleteReport(report.id)} className="font-medium text-red-600 hover:underline">Delete</button>
