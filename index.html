@@ -139,8 +139,12 @@
                 return lines.map((line, index) => {
                     const trimmedLine = line.trim();
                     if (trimmedLine === '***') return <hr key={index} className="my-4 border-gray-300" />;
-                    if (trimmedLine.startsWith('###')) return <h4 key={index} className="font-semibold text-gray-900 mt-5 mb-2">{trimmedLine.replace(/###\s*/, '').replace(/\*\*/g, '')}</h4>;
-                    if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**')) return <h3 key={index} className="font-bold text-lg text-center text-gray-800 my-4">{trimmedLine.slice(2, -2)}</h3>;
+                    if (trimmedLine.startsWith('###') || (trimmedLine.startsWith('**') && trimmedLine.endsWith(':**'))) {
+                        return <h4 key={index} className="font-semibold text-gray-900 mt-5 mb-2">{trimmedLine.replace(/###\s*/, '').replace(/\*\*/g, '')}</h4>;
+                    }
+                    if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**')) {
+                        return <h3 key={index} className="font-bold text-lg text-center text-gray-800 my-4">{trimmedLine.slice(2, -2)}</h3>;
+                    }
                     if (trimmedLine.startsWith('* ')) return <p key={index} className="my-1 ml-4">{`• ${trimmedLine.slice(2)}`}</p>;
                     if (trimmedLine.length > 0) return <p key={index} className="my-2">{trimmedLine}</p>;
                     return null;
@@ -196,11 +200,19 @@
                 (formattedReport || '').split('\n').forEach(line => {
                     const trimmedLine = line.trim();
                     if (trimmedLine === '***') { y+= 5; doc.setDrawColor(200); doc.line(leftMargin, y, doc.internal.pageSize.getWidth() - rightMargin, y); y += 15; }
-                    else if (trimmedLine.startsWith('###')) { addText(trimmedLine.replace(/###\s*/, '').replace(/\*\*/g, ''), { size: 12, isBold: true, spaceAfter: 5 }); }
-                    else if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**') && !trimmedLine.includes(':')) { addText(trimmedLine.slice(2, -2), { size: 14, isBold: true, isCentered: true, spaceAfter: 15 }); }
-                    else if (trimmedLine.startsWith('* ')) { addText(trimmedLine.substring(2), { isListItem: true, spaceAfter: 2 }); }
-                    else if (trimmedLine.startsWith('**') && trimmedLine.includes(':**')) { addText(trimmedLine.replace(/\*\*/g, ''), { spaceAfter: 2 }); }
-                    else if (trimmedLine.length > 0) { addText(trimmedLine, { spaceAfter: 8 }); }
+                    // **FIX**: Correctly identify and format all heading types in the PDF.
+                    else if (trimmedLine.startsWith('###') || (trimmedLine.startsWith('**') && trimmedLine.endsWith(':**'))) { 
+                        addText(trimmedLine.replace(/###\s*/, '').replace(/\*\*/g, ''), { size: 12, isBold: true, spaceAfter: 5 }); 
+                    }
+                    else if (trimmedLine.startsWith('**') && trimmedLine.endsWith('**') && !trimmedLine.includes(':')) { 
+                        addText(trimmedLine.slice(2, -2), { size: 14, isBold: true, isCentered: true, spaceAfter: 15 }); 
+                    }
+                    else if (trimmedLine.startsWith('* ')) { 
+                        addText(trimmedLine.substring(2), { isListItem: true, spaceAfter: 2 }); 
+                    }
+                    else if (trimmedLine.length > 0) { 
+                        addText(trimmedLine, { spaceAfter: 8 }); 
+                    }
                 });
 
                 doc.save(`Case-Report-${report.caseNumber}.pdf`);
@@ -481,10 +493,10 @@
                 if (!analysisResponse.ok) throw new Error(analysisData.error || "Failed to generate analysis");
                 setAnalysis(analysisData.candidates[0].content.parts[0].text.trim());
 
-                // **FIX**: Check for createdAt field and format it robustly in the user's local timezone.
                 let formattedDateTime = 'Date not available';
-                if (report.createdAt && report.createdAt._seconds) {
-                    const reportDate = new Date(report.createdAt._seconds * 1000);
+                if (report.createdAt && (report.createdAt.seconds || report.createdAt._seconds)) {
+                    const seconds = report.createdAt.seconds || report.createdAt._seconds;
+                    const reportDate = new Date(seconds * 1000);
                     formattedDateTime = reportDate.toLocaleString(undefined, {
                         year: 'numeric',
                         month: 'long',
@@ -500,7 +512,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
                         reportData: report.reportContent,
-                        formattedDateTime: formattedDateTime // Send the pre-formatted string
+                        formattedDateTime: formattedDateTime
                     })
                 });
                 const formatData = await formatResponse.json();
@@ -508,8 +520,8 @@
                 setFormattedReport(formatData.formattedReport);
 
             } catch (error) { 
-                setAnalysis(`Failed to generate analysis: ${error.message}`);
-                setFormattedReport(`Failed to format report: ${error.message}`);
+                setAnalysis(`Analysis Error: ${error.message}`);
+                setFormattedReport(`Report Formatting Error: ${error.message}`);
             }
             finally { setIsAnalysisLoading(false); }
           };
@@ -566,7 +578,7 @@
           };
 
           const pendingReviews = reports.length;
-          const completedThisWeek = reports.filter(r => new Date(r.createdAt?._seconds * 1000) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length;
+          const completedThisWeek = reports.filter(r => new Date(r.createdAt?._seconds * 1000 || r.createdAt?.seconds * 1000) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length;
 
           return (
             <div className="bg-gray-50 min-h-screen">
@@ -603,7 +615,7 @@
                             <td className="px-6 py-4 font-mono text-xs text-gray-500">{report.caseNumber}</td>
                             <td className="px-6 py-4 font-medium text-gray-900">{report.clientName}</td>
                             <td className="px-6 py-4">{report.clientEmail}</td>
-                            <td className="px-6 py-4">{new Date(report.createdAt?._seconds * 1000).toLocaleDateString()}</td>
+                            <td className="px-6 py-4">{new Date((report.createdAt?._seconds || report.createdAt?.seconds) * 1000).toLocaleDateString()}</td>
                             <td className="px-6 py-4 flex items-center gap-4">
                               <button onClick={() => handleViewReport(report)} className="font-medium text-blue-600 hover:underline">View Report</button>
                               <button onClick={() => handleDeleteReport(report.id)} className="font-medium text-red-600 hover:underline">Delete</button>
