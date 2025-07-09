@@ -409,18 +409,22 @@
                         </div>
                         <div className="p-6 overflow-y-auto">
                             <GuideStep title="1. Create an Intake Link" imageSrc="https://i.postimg.cc/NjnFZBfL/Ceate-Intake-Link.jpg">
-                                <p>Click the <strong>+ Create Intake Link</strong> button to copy the link for the client-facing chatbot. You can then send this link to your clients to start the intake process.</p>
+                                <p>Click the <strong>+ Create Intake Link</strong> button to generate a unique, single-use link for a new client.</p>
                             </GuideStep>
-                             <GuideStep title="2. Dashboard Overview" imageSrc="https://i.postimg.cc/mkcBYFCw/Dashboard-over-vew-boxes.jpg">
+                            {/* **FIX**: Added new step for sharing credentials */}
+                            <GuideStep title="2. Share Client Credentials" imageSrc="https://i.postimg.cc/hPyWJZPL/link-creator.jpg">
+                                <p>A window will appear with the client's unique <strong>Case ID</strong>, <strong>Passcode</strong>, and the full <strong>Client Link</strong>. Copy this information and send it to your client so they can access the secure intake chatbot.</p>
+                            </GuideStep>
+                             <GuideStep title="3. Dashboard Overview" imageSrc="https://i.postimg.cc/mkcBYFCw/Dashboard-over-vew-boxes.jpg">
                                 <p>The boxes at the top give you a quick summary of your workload, including how many reports are pending review and how many have been completed this week.</p>
                             </GuideStep>
-                             <GuideStep title="3. Recent Case Assessments" imageSrc="https://i.postimg.cc/VsHjzQ6Q/recent-case-assesements.jpg">
+                             <GuideStep title="4. Recent Case Assessments" imageSrc="https://i.postimg.cc/VsHjzQ6Q/recent-case-assesements.jpg">
                                 <p>This table lists all the intake reports submitted by your clients. You can see the case number, client name, and other details at a glance. Click <strong>View Report</strong> to see the full details or <strong>Delete</strong> to remove a report.</p>
                             </GuideStep>
-                             <GuideStep title="4. Generating the AI Analysis" imageSrc="https://i.postimg.cc/P58WJ673/generatinf-ai-analysis.jpg">
+                             <GuideStep title="5. Generating the AI Analysis" imageSrc="https://i.postimg.cc/P58WJ673/generatinf-ai-analysis.jpg">
                                 <p>When you view a report, the system automatically starts generating a high-level AI analysis. This animation indicates that the AI is processing the information.</p>
                             </GuideStep>
-                             <GuideStep title="5. Understanding the Report" imageSrc="https://i.postimg.cc/SNLY954j/Understanding-the-Report.jpg">
+                             <GuideStep title="6. Understanding the Report" imageSrc="https://i.postimg.cc/SNLY954j/Understanding-the-Report.jpg">
                                 <p>The AI-Powered Analysis section provides a visual <strong>Case Strength</strong> gauge, a summary, and actionable recommendations. Below this, you can find the complete, formatted transcript of the client's intake interview.</p>
                                 <p>Finally, you can click the <strong>Download as PDF</strong> button to save a clean, professional copy of the entire report for your records.</p>
                             </GuideStep>
@@ -643,7 +647,6 @@
 
               {showLoginModal && <LoginModal onGo={handleLoginSubmit} onClose={() => setShowLoginModal(false)} />}
               {showInternalInfoModal && <InternalInfoModal onClose={() => setShowInternalInfoModal(false)} />}
-              {/* **FIX**: Corrected the onClose handler to close the modal. */}
               {showHowToUseModal && <HowToUseModal onClose={() => setShowHowToUseModal(false)} />}
             </div>
           );
