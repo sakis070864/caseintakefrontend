@@ -200,7 +200,6 @@
                 (formattedReport || '').split('\n').forEach(line => {
                     const trimmedLine = line.trim();
                     if (trimmedLine === '***') { y+= 5; doc.setDrawColor(200); doc.line(leftMargin, y, doc.internal.pageSize.getWidth() - rightMargin, y); y += 15; }
-                    // **FIX**: Correctly identify and format all heading types in the PDF.
                     else if (trimmedLine.startsWith('###') || (trimmedLine.startsWith('**') && trimmedLine.endsWith(':**'))) { 
                         addText(trimmedLine.replace(/###\s*/, '').replace(/\*\*/g, ''), { size: 12, isBold: true, spaceAfter: 5 }); 
                     }
@@ -494,7 +493,7 @@
                 setAnalysis(analysisData.candidates[0].content.parts[0].text.trim());
 
                 let formattedDateTime = 'Date not available';
-                if (report.createdAt && (report.createdAt.seconds || report.createdAt._seconds)) {
+                if (report.createdAt && (typeof report.createdAt.seconds === 'number' || typeof report.createdAt._seconds === 'number')) {
                     const seconds = report.createdAt.seconds || report.createdAt._seconds;
                     const reportDate = new Date(seconds * 1000);
                     formattedDateTime = reportDate.toLocaleString(undefined, {
@@ -578,13 +577,17 @@
           };
 
           const pendingReviews = reports.length;
-          const completedThisWeek = reports.filter(r => new Date(r.createdAt?._seconds * 1000 || r.createdAt?.seconds * 1000) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)).length;
+          const completedThisWeek = reports.filter(r => {
+              if (!r.createdAt || (typeof r.createdAt.seconds !== 'number' && typeof r.createdAt._seconds !== 'number')) return false;
+              const seconds = r.createdAt.seconds || r.createdAt._seconds;
+              return new Date(seconds * 1000) > new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+          }).length;
 
           return (
             <div className="bg-gray-50 min-h-screen">
               <DashboardHeader 
                 onInternalInfoClick={() => setShowLoginModal(true)} 
-                onHowToUseClick={() => setShowHowToUseClick(true)}
+                onHowToUseClick={() => setShowHowToUseModal(true)}
                 onCreateIntakeLink={handleCreateIntakeLink}
               />
               <main className="p-6">
@@ -615,7 +618,12 @@
                             <td className="px-6 py-4 font-mono text-xs text-gray-500">{report.caseNumber}</td>
                             <td className="px-6 py-4 font-medium text-gray-900">{report.clientName}</td>
                             <td className="px-6 py-4">{report.clientEmail}</td>
-                            <td className="px-6 py-4">{new Date((report.createdAt?._seconds || report.createdAt?.seconds) * 1000).toLocaleDateString()}</td>
+                            <td className="px-6 py-4">
+                                {report.createdAt && (report.createdAt.seconds || report.createdAt._seconds)
+                                    ? new Date((report.createdAt.seconds || report.createdAt._seconds) * 1000).toLocaleDateString()
+                                    : 'N/A'
+                                }
+                            </td>
                             <td className="px-6 py-4 flex items-center gap-4">
                               <button onClick={() => handleViewReport(report)} className="font-medium text-blue-600 hover:underline">View Report</button>
                               <button onClick={() => handleDeleteReport(report.id)} className="font-medium text-red-600 hover:underline">Delete</button>
@@ -635,6 +643,7 @@
 
               {showLoginModal && <LoginModal onGo={handleLoginSubmit} onClose={() => setShowLoginModal(false)} />}
               {showInternalInfoModal && <InternalInfoModal onClose={() => setShowInternalInfoModal(false)} />}
+              {/* **FIX**: Corrected the onClose handler to close the modal. */}
               {showHowToUseModal && <HowToUseModal onClose={() => setShowHowToUseModal(false)} />}
             </div>
           );
